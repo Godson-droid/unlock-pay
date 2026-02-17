@@ -14,7 +14,122 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      content: {
+        Row: {
+          content_type: string
+          created_at: string
+          description: string | null
+          file_url: string | null
+          id: string
+          is_active: boolean
+          price_usd: number
+          share_token: string
+          text_content: string | null
+          title: string
+          user_id: string
+        }
+        Insert: {
+          content_type: string
+          created_at?: string
+          description?: string | null
+          file_url?: string | null
+          id?: string
+          is_active?: boolean
+          price_usd: number
+          share_token?: string
+          text_content?: string | null
+          title: string
+          user_id: string
+        }
+        Update: {
+          content_type?: string
+          created_at?: string
+          description?: string | null
+          file_url?: string | null
+          id?: string
+          is_active?: boolean
+          price_usd?: number
+          share_token?: string
+          text_content?: string | null
+          title?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      payments: {
+        Row: {
+          access_token: string
+          amount_usd: number
+          content_id: string
+          created_at: string
+          crypto_amount: number | null
+          crypto_currency: string | null
+          id: string
+          nowpayments_id: string | null
+          payer_email: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          access_token?: string
+          amount_usd: number
+          content_id: string
+          created_at?: string
+          crypto_amount?: number | null
+          crypto_currency?: string | null
+          id?: string
+          nowpayments_id?: string | null
+          payer_email?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          access_token?: string
+          amount_usd?: number
+          content_id?: string
+          created_at?: string
+          crypto_amount?: number | null
+          crypto_currency?: string | null
+          id?: string
+          nowpayments_id?: string | null
+          payer_email?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payments_content_id_fkey"
+            columns: ["content_id"]
+            isOneToOne: false
+            referencedRelation: "content"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      profiles: {
+        Row: {
+          created_at: string
+          display_name: string | null
+          email: string | null
+          id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          display_name?: string | null
+          email?: string | null
+          id?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          display_name?: string | null
+          email?: string | null
+          id?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
