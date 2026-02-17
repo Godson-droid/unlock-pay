@@ -5,7 +5,7 @@ import { useAuth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Copy, LogOut, Image, Video, FileText, Music, ExternalLink } from "lucide-react";
+import { Plus, Copy, LogOut, Image, Video, FileText, Music, ExternalLink, DollarSign, TrendingUp, Eye } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import type { Tables } from "@/integrations/supabase/types";
 
@@ -21,6 +21,7 @@ const Dashboard = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [content, setContent] = useState<Tables<"content">[]>([]);
+  const [payments, setPayments] = useState<Tables<"payments">[]>([]);
   const [fetching, setFetching] = useState(true);
 
   useEffect(() => {
@@ -29,16 +30,24 @@ const Dashboard = () => {
 
   useEffect(() => {
     if (!user) return;
-    const fetchContent = async () => {
-      const { data } = await supabase
-        .from("content")
-        .select("*")
-        .eq("user_id", user.id)
-        .order("created_at", { ascending: false });
-      setContent(data || []);
+    const fetchData = async () => {
+      const [contentRes, paymentsRes] = await Promise.all([
+        supabase
+          .from("content")
+          .select("*")
+          .eq("user_id", user.id)
+          .order("created_at", { ascending: false }),
+        supabase
+          .from("payments")
+          .select("*, content!inner(user_id)")
+          .eq("content.user_id", user.id)
+          .order("created_at", { ascending: false }),
+      ]);
+      setContent(contentRes.data || []);
+      setPayments(paymentsRes.data || []);
       setFetching(false);
     };
-    fetchContent();
+    fetchData();
   }, [user]);
 
   const copyLink = (shareToken: string) => {
@@ -73,7 +82,53 @@ const Dashboard = () => {
         </div>
       </header>
 
-      <main className="mx-auto max-w-5xl px-4 py-8">
+      <main className="mx-auto max-w-5xl px-4 py-8 space-y-8">
+        {/* Earnings Stats */}
+        {(() => {
+          const finishedPayments = payments.filter((p: any) => p.status === "finished");
+          const totalEarnings = finishedPayments.reduce((sum: number, p: any) => sum + Number(p.amount_usd), 0);
+          const pendingPayments = payments.filter((p: any) => p.status === "pending" || p.status === "waiting");
+          const pendingAmount = pendingPayments.reduce((sum: number, p: any) => sum + Number(p.amount_usd), 0);
+          return (
+            <div className="grid gap-4 sm:grid-cols-3">
+              <Card>
+                <CardContent className="flex items-center gap-4 pt-6">
+                  <div className="rounded-lg bg-accent/10 p-3">
+                    <DollarSign className="h-5 w-5 text-accent" />
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Total Earnings</p>
+                    <p className="text-2xl font-bold">${totalEarnings.toFixed(2)}</p>
+                  </div>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="flex items-center gap-4 pt-6">
+                  <div className="rounded-lg bg-primary/10 p-3">
+                    <TrendingUp className="h-5 w-5 text-primary" />
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Pending</p>
+                    <p className="text-2xl font-bold">${pendingAmount.toFixed(2)}</p>
+                  </div>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="flex items-center gap-4 pt-6">
+                  <div className="rounded-lg bg-secondary/80 p-3">
+                    <Eye className="h-5 w-5 text-secondary-foreground" />
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Total Payments</p>
+                    <p className="text-2xl font-bold">{finishedPayments.length}</p>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          );
+        })()}
+
+        {/* Content Section */}
         {content.length === 0 ? (
           <Card className="border-dashed">
             <CardContent className="flex flex-col items-center justify-center py-16 text-center">
