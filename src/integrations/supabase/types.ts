@@ -106,6 +106,39 @@ export type Database = {
           },
         ]
       }
+      payout_info: {
+        Row: {
+          created_at: string
+          id: string
+          notes: string | null
+          preferred_currency: string | null
+          updated_at: string
+          user_id: string
+          wallet_address: string | null
+          wallet_network: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          notes?: string | null
+          preferred_currency?: string | null
+          updated_at?: string
+          user_id: string
+          wallet_address?: string | null
+          wallet_network?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          notes?: string | null
+          preferred_currency?: string | null
+          updated_at?: string
+          user_id?: string
+          wallet_address?: string | null
+          wallet_network?: string | null
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           created_at: string

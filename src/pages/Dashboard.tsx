@@ -5,7 +5,7 @@ import { useAuth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Copy, LogOut, Image, Video, FileText, Music, ExternalLink, DollarSign, TrendingUp, Eye } from "lucide-react";
+import { Plus, Copy, LogOut, Image, Video, FileText, Music, ExternalLink, DollarSign, TrendingUp, Eye, Settings } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import type { Tables } from "@/integrations/supabase/types";
 
@@ -70,6 +70,11 @@ const Dashboard = () => {
         <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-4">
           <h1 className="text-xl font-bold">🔐 LockPay</h1>
           <div className="flex items-center gap-3">
+            <Button variant="outline" size="icon" asChild>
+              <Link to="/payout-settings">
+                <Settings className="h-4 w-4" />
+              </Link>
+            </Button>
             <Button asChild>
               <Link to="/create">
                 <Plus className="mr-2 h-4 w-4" /> New Content
