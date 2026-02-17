@@ -11,6 +11,7 @@ import ResetPassword from "./pages/ResetPassword";
 import Dashboard from "./pages/Dashboard";
 import Create from "./pages/Create";
 import Unlock from "./pages/Unlock";
+import PayoutSettings from "./pages/PayoutSettings";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -29,6 +30,7 @@ const App = () => (
             <Route path="/reset-password" element={<ResetPassword />} />
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/create" element={<Create />} />
+            <Route path="/payout-settings" element={<PayoutSettings />} />
             <Route path="/unlock/:token" element={<Unlock />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
