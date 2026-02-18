@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
@@ -10,7 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { ArrowLeft, Upload, Image, Video, FileText, Music, DollarSign } from "lucide-react";
-import { useEffect } from "react";
+import { Progress } from "@/components/ui/progress";
 
 const contentTypes = [
   { value: "image", label: "Image", icon: Image, accept: "image/*" },
@@ -30,6 +30,10 @@ const Create = () => {
   const [textContent, setTextContent] = useState("");
   const [file, setFile] = useState<File | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+
+  const MAX_FILE_SIZE_MB = 50;
+  const MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024;
 
   useEffect(() => {
     if (!loading && !user) navigate("/auth");
@@ -38,20 +42,55 @@ const Create = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user) return;
+
+    if (contentType !== "text" && file && file.size > MAX_FILE_SIZE_BYTES) {
+      toast({ title: "File too large", description: `Maximum file size is ${MAX_FILE_SIZE_MB}MB. Your file is ${(file.size / 1024 / 1024).toFixed(1)}MB.`, variant: "destructive" });
+      return;
+    }
+
     setSubmitting(true);
+    setUploadProgress(0);
 
     try {
       let fileUrl: string | null = null;
 
       if (contentType !== "text" && file) {
+        setUploadProgress(10);
         const ext = file.name.split(".").pop();
         const filePath = `${user.id}/${crypto.randomUUID()}.${ext}`;
-        const { error: uploadError } = await supabase.storage
-          .from("content")
-          .upload(filePath, file);
-        if (uploadError) throw uploadError;
+
+        // Use XMLHttpRequest for progress tracking
+        const { data: { session } } = await supabase.auth.getSession();
+        const token = session?.access_token;
+        const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+
+        await new Promise<void>((resolve, reject) => {
+          const xhr = new XMLHttpRequest();
+          xhr.open("POST", `${supabaseUrl}/storage/v1/object/content/${filePath}`);
+          xhr.setRequestHeader("Authorization", `Bearer ${token}`);
+          xhr.setRequestHeader("x-upsert", "false");
+
+          xhr.upload.onprogress = (event) => {
+            if (event.lengthComputable) {
+              setUploadProgress(Math.round((event.loaded / event.total) * 90) + 10);
+            }
+          };
+
+          xhr.onload = () => {
+            if (xhr.status >= 200 && xhr.status < 300) resolve();
+            else reject(new Error(`Upload failed: ${xhr.statusText || "Unknown error"}`));
+          };
+          xhr.onerror = () => reject(new Error("Upload failed. Check your connection and try again."));
+          xhr.ontimeout = () => reject(new Error("Upload timed out. Try a smaller file."));
+          xhr.timeout = 300000; // 5 min timeout
+
+          xhr.send(file);
+        });
+
         fileUrl = filePath;
       }
+
+      setUploadProgress(95);
 
       const { error } = await supabase.from("content").insert({
         user_id: user.id,
@@ -65,12 +104,14 @@ const Create = () => {
 
       if (error) throw error;
 
+      setUploadProgress(100);
       toast({ title: "Content created!", description: "Your shareable link is ready." });
       navigate("/dashboard");
     } catch (error: any) {
       toast({ title: "Error", description: error.message, variant: "destructive" });
     } finally {
       setSubmitting(false);
+      setUploadProgress(0);
     }
   };
 
@@ -187,6 +228,15 @@ const Create = () => {
                   Recipients pay the equivalent in cryptocurrency
                 </p>
               </div>
+
+              {submitting && (
+                <div className="space-y-2">
+                  <Progress value={uploadProgress} className="h-2" />
+                  <p className="text-xs text-center text-muted-foreground">
+                    {uploadProgress < 95 ? `Uploading... ${uploadProgress}%` : "Saving..."}
+                  </p>
+                </div>
+              )}
 
               <Button type="submit" className="w-full" disabled={submitting}>
                 {submitting ? "Creating..." : "Create & Get Link"}
