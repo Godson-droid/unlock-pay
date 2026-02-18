@@ -9,8 +9,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, Upload, Image, Video, FileText, Music, DollarSign } from "lucide-react";
+import { ArrowLeft, Upload, Image, Video, FileText, Music, DollarSign, Zap } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
+import { Switch } from "@/components/ui/switch";
+import { useVideoCompression } from "@/hooks/use-video-compression";
 
 const contentTypes = [
   { value: "image", label: "Image", icon: Image, accept: "image/*" },
@@ -31,6 +33,15 @@ const Create = () => {
   const [file, setFile] = useState<File | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
+  const [compressVideo, setCompressVideo] = useState(true);
+
+  const {
+    compressVideo: compress,
+    isCompressing,
+    progress: compressionProgress,
+    originalSize,
+    compressedSize,
+  } = useVideoCompression();
 
   const MAX_FILE_SIZE_MB = 200;
   const MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024;
@@ -38,6 +49,12 @@ const Create = () => {
   useEffect(() => {
     if (!loading && !user) navigate("/auth");
   }, [user, loading, navigate]);
+
+  const formatSize = (bytes: number) => {
+    if (bytes === 0) return "0 B";
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -53,13 +70,36 @@ const Create = () => {
 
     try {
       let fileUrl: string | null = null;
+      let fileToUpload = file;
 
       if (contentType !== "text" && file) {
+        // Compress video if enabled
+        if (contentType === "video" && compressVideo) {
+          try {
+            toast({ title: "Compressing video...", description: "This may take a moment depending on the file size." });
+            fileToUpload = await compress(file);
+            toast({
+              title: "Video compressed!",
+              description: `${formatSize(file.size)} → ${formatSize(fileToUpload.size)} (${Math.round((1 - fileToUpload.size / file.size) * 100)}% smaller)`,
+            });
+          } catch (err) {
+            console.error("Compression failed, uploading original:", err);
+            toast({ title: "Compression skipped", description: "Could not compress video. Uploading original file.", variant: "destructive" });
+            fileToUpload = file;
+          }
+        }
+
+        // Check size again after compression
+        if (fileToUpload && fileToUpload.size > MAX_FILE_SIZE_BYTES) {
+          toast({ title: "File still too large", description: `Even after compression, the file is ${formatSize(fileToUpload.size)}. Maximum is ${MAX_FILE_SIZE_MB}MB.`, variant: "destructive" });
+          setSubmitting(false);
+          return;
+        }
+
         setUploadProgress(10);
-        const ext = file.name.split(".").pop();
+        const ext = fileToUpload!.name.split(".").pop();
         const filePath = `${user.id}/${crypto.randomUUID()}.${ext}`;
 
-        // Use XMLHttpRequest for progress tracking
         const { data: { session } } = await supabase.auth.getSession();
         const token = session?.access_token;
         const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
@@ -82,9 +122,9 @@ const Create = () => {
           };
           xhr.onerror = () => reject(new Error("Upload failed. Check your connection and try again."));
           xhr.ontimeout = () => reject(new Error("Upload timed out. Try a smaller file."));
-          xhr.timeout = 300000; // 5 min timeout
+          xhr.timeout = 300000;
 
-          xhr.send(file);
+          xhr.send(fileToUpload!);
         });
 
         fileUrl = filePath;
@@ -205,6 +245,26 @@ const Create = () => {
                       required={contentType !== "text"}
                     />
                   </div>
+                  {file && (
+                    <p className="text-xs text-muted-foreground">
+                      File size: {formatSize(file.size)}
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {contentType === "video" && file && (
+                <div className="flex items-center justify-between rounded-lg border border-border p-3">
+                  <div className="flex items-center gap-2">
+                    <Zap className="h-4 w-4 text-primary" />
+                    <div>
+                      <p className="text-sm font-medium">Compress video</p>
+                      <p className="text-xs text-muted-foreground">
+                        Reduces file size for faster uploads
+                      </p>
+                    </div>
+                  </div>
+                  <Switch checked={compressVideo} onCheckedChange={setCompressVideo} />
                 </div>
               )}
 
@@ -229,7 +289,16 @@ const Create = () => {
                 </p>
               </div>
 
-              {submitting && (
+              {isCompressing && (
+                <div className="space-y-2">
+                  <Progress value={compressionProgress} className="h-2" />
+                  <p className="text-xs text-center text-muted-foreground">
+                    Compressing video... {compressionProgress}%
+                  </p>
+                </div>
+              )}
+
+              {submitting && !isCompressing && (
                 <div className="space-y-2">
                   <Progress value={uploadProgress} className="h-2" />
                   <p className="text-xs text-center text-muted-foreground">
@@ -238,8 +307,14 @@ const Create = () => {
                 </div>
               )}
 
-              <Button type="submit" className="w-full" disabled={submitting}>
-                {submitting ? "Creating..." : "Create & Get Link"}
+              {compressedSize > 0 && !isCompressing && !submitting && (
+                <p className="text-xs text-center text-primary">
+                  Compressed: {formatSize(originalSize)} → {formatSize(compressedSize)} ({Math.round((1 - compressedSize / originalSize) * 100)}% smaller)
+                </p>
+              )}
+
+              <Button type="submit" className="w-full" disabled={submitting || isCompressing}>
+                {isCompressing ? "Compressing..." : submitting ? "Creating..." : "Create & Get Link"}
               </Button>
             </form>
           </CardContent>
